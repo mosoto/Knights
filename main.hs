@@ -36,7 +36,7 @@ swap :: (Ix i) => Array i e -> i -> i -> Array i e
 swap arr i1 i2 = arr // [(i1, arr ! i2), (i2, arr ! i1)]
 
 energy :: Array Position (Set Position) -> KnightPath -> Double
-energy moveMap knightPath = fromIntegral . length . filter id $ moveValidity
+energy moveMap knightPath = fromIntegral . length . filter not $ moveValidity
     where pathArr = elems knightPath
           moveValidity = zipWith (\from to -> member to (moveMap ! from)) pathArr (tail pathArr)
 
