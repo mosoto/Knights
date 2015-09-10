@@ -12,8 +12,12 @@ main :: IO()
 main = do
     let allPositions = [(x, y) :: Position | x <- [1..8], y <- [1..8] ]
     let moveMap = array ((1,1), (8,8)) . map (\p -> (p, possibleMovesSet p)) $ allPositions
-    let energyOfPath = energy moveMap :: EnergyOfState KnightPath
-    print 1
+    let energyOfState = energy moveMap :: EnergyOfState KnightPath
+    shuffledPositions <- shuffleM allPositions
+    let startState = listArray (0,63) shuffledPositions
+    let maxK = 200000
+    annealedState <- simulatedAnnealing startState maxK neighbour temperature energyOfState acceptanceProb
+    print $ annealedState
 
 
 
