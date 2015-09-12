@@ -4,6 +4,7 @@ import Data.Foldable (foldlM)
 import Data.Array
 import System.Random.Shuffle (shuffleM)
 import Data.Set (Set, fromList, member)
+import Debug.Trace (trace)
 
 type Position = (Int,Int)
 type KnightPath = Array Int Position
@@ -15,14 +16,17 @@ main = do
     let energyOfState = energy moveMap :: EnergyOfState KnightPath
     shuffledPositions <- shuffleM allPositions
     let startState = listArray (0,63) shuffledPositions
-    let maxK = 200000
+    let maxK = 20000000
     annealedState <- simulatedAnnealing startState maxK neighbour temperature energyOfState acceptanceProb
+    print $ energyOfState startState
+    print $ energyOfState annealedState
     print $ annealedState
 
 
 
 temperature :: TemperatureSchedule
-temperature p = p
+temperature p = t
+    where t = 2 * (1 - p)
 
 acceptanceProb :: AcceptanceProbability
 acceptanceProb es es' t = if es' < es then 1 else exp (- (es' - es) / t)
@@ -31,9 +35,10 @@ acceptanceProb es es' t = if es' < es then 1 else exp (- (es' - es) / t)
 neighbour :: NeighbourMove KnightPath
 neighbour path = do
     let lowerBound = (fst . bounds $ path)
-    let upperBound = (snd . bounds $ path) - 1
-    randIndex <- randomRIO (lowerBound, upperBound)
-    let newPath = swap path randIndex (randIndex + 1)
+    let upperBound = (snd . bounds $ path)
+    randIndex1 <- randomRIO (lowerBound, upperBound)
+    randIndex2 <- randomRIO (lowerBound, upperBound)
+    let newPath = swap path randIndex1 randIndex2
     return newPath
     
 swap :: (Ix i) => Array i e -> i -> i -> Array i e
