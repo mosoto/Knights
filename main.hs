@@ -13,7 +13,7 @@ data KnightPath = Path {- Path -} [Position]    {- The available moves from a gi
 
 main :: IO ()
 main = do
-    let initialPosition = (4,4)
+    let initialPosition = (1,1)
     let initialPaths = [positionToPath initialPosition]
     let expandPaths = concatMap expandPath
     let allPaths = iterate expandPaths initialPaths
