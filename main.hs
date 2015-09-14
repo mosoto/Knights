@@ -1,30 +1,45 @@
-import Control.Applicative
-import Data.Array
-import Data.List (nub)
-import Data.Set (Set, singleton, difference, empty, insert, delete, toList, fromList, size)
+import Data.List (sortOn)
+
+import Data.Set (Set)
+import qualified Data.Set as Set
+
+import Data.Map.Strict (Map, (!))
+import qualified Data.Map.Strict as Map
+
 
 type Position = (Int,Int)
-data KnightPath = Path [Position] {- The used positions -} (Set Position)
+type PossibleMoveMap = (Map Position (Set Position))
+data KnightPath = Path {- Path -} [Position]    {- The available moves from a given position -} PossibleMoveMap deriving (Show)
 
 main :: IO ()
 main = do
-    let allPositions = [(x::Int, y::Int) | x <- [1..8], y <- [1..8] ]
-    let moveMap = array ((1,1), (8,8)) . map (\p -> (p, possibleMovesSet p)) $ allPositions
-    let startPaths = map (\a -> Path [a] (singleton a)) allPositions
-    let nextMoves (x:xs) used = difference (moveMap ! x) used
-    let expandPath = concatMap (\(Path path' used) -> map (\nm -> Path (nm:path') (insert nm used)) (toList $ nextMoves path' used))
-    let allPaths = filter (\(Path p u) -> (size u) == 64 ) ((iterate expandPath startPaths) !! 63)
+    let initialPosition = (4,4)
+    let initialPaths = [positionToPath initialPosition]
+    let expandPaths = concatMap expandPath
+    let allPaths = iterate expandPaths initialPaths
+    let allSolutions = allPaths !! 63
 
-    print $ map getPath $ take 1 $ allPaths
+    sequence_ . map (putStrLn . show . reverse) . take 10 . map getPath $ allSolutions
 
+getPath :: KnightPath -> [Position]
+getPath (Path p _) = p
 
-getPath (Path p up) = p
+allBoardPositions :: [Position]
+allBoardPositions = [(x, y) | x <- [1..8], y <- [1..8] ]
 
-possibleMovesSet :: (Ord i, Num i) => (i,i) -> Set (i,i)
-possibleMovesSet p = fromList (possibleMoves p)
+initialMoveMap :: Map Position (Set Position)
+initialMoveMap = foldl insertPossibleMoves Map.empty allBoardPositions
+    where insertPossibleMoves map position = Map.insert position (possibleMoves position) map
 
-possibleMoves :: (Ord i, Num i) => (i,i) -> [(i,i)]
-possibleMoves (x,y) = filter (\(x,y) -> x >= 1 && x <= 8 && y >=1 && y <=8) pm
+positionToPath :: Position -> KnightPath
+positionToPath p = Path [p] (removePosition p initialMoveMap)
+
+removePosition :: Position -> PossibleMoveMap -> PossibleMoveMap
+removePosition p m = Map.map adjustMap m
+    where adjustMap moveSet = Set.delete p moveSet
+
+possibleMoves :: Position -> Set Position
+possibleMoves (x,y) = Set.fromList . filter (\(x,y) -> x >= 1 && x <= 8 && y >=1 && y <=8) $ pm
     where pm = [(x+2, y+1), 
                 (x+2, y-1), 
                 (x-2, y+1), 
@@ -33,3 +48,10 @@ possibleMoves (x,y) = filter (\(x,y) -> x >= 1 && x <= 8 && y >=1 && y <=8) pm
                 (x+1, y-2),
                 (x-1, y+2), 
                 (x-1, y-2)]
+
+-- Make a move - resulting in 1 or more possible paths
+expandPath :: KnightPath -> [KnightPath]
+expandPath (Path path@(x:xs) possibleMoveMap) = map newPath sortedNextMoves
+    where newPath np = Path (np:path) (removePosition np possibleMoveMap)
+          nextMoves = Set.toList $ possibleMoveMap ! x
+          sortedNextMoves = sortOn (\p -> Set.size $ possibleMoveMap ! p) nextMoves
