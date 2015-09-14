@@ -1,3 +1,4 @@
+import System.Environment (getArgs)
 import Data.List (sortOn)
 
 import Data.Set (Set)
@@ -13,13 +14,14 @@ data KnightPath = Path {- Path -} [Position]    {- The available moves from a gi
 
 main :: IO ()
 main = do
-    let initialPosition = (1,1)
+    args <- getArgs
+    let initialPosition = read . head $ args
     let initialPaths = [positionToPath initialPosition]
     let expandPaths = concatMap expandPath
     let allPaths = iterate expandPaths initialPaths
     let allSolutions = allPaths !! 63
 
-    sequence_ . map (putStrLn . show . reverse) . take 10 . map getPath $ allSolutions
+    sequence_ . map (putStrLn . show . reverse) . take 1 . map getPath $ allSolutions
 
 getPath :: KnightPath -> [Position]
 getPath (Path p _) = p
