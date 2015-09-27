@@ -1,5 +1,5 @@
 import System.Environment (getArgs)
-import System.Random (getStdGen, randomR, randomRs, randomRIO)
+import System.Random (getStdGen, randomR, randomRs, randomRIO, StdGen)
 import Data.List (sortOn, mapAccumL)
 import Data.Tuple (swap)
 import Control.Monad (liftM)
@@ -19,10 +19,11 @@ main :: IO ()
 main = do
     args <- getArgs
     let initialPosition = read . head $ args
-    let initialPaths = return [positionToPath initialPosition]
+    let initialPaths = [positionToPath initialPosition]
+    randGen <- getStdGen
 
-    let allPaths = iterate expandPaths initialPaths
-    allSolutions <- allPaths !! 60
+    let allPaths = iterate (expandPaths randGen) initialPaths
+    let allSolutions = allPaths !! 60
 
     sequence_ . map (putStrLn . show . reverse) . take 1 . map getPath $ allSolutions
 
@@ -34,7 +35,7 @@ allBoardPositions = [(x, y) | x <- [1..8], y <- [1..8] ]
 
 initialMoveMap :: Map Position (Set Position)
 initialMoveMap = foldl insertPossibleMoves Map.empty allBoardPositions
-    where insertPossibleMoves map position = Map.insert position (possibleMoves position) map
+    where insertPossibleMoves moveMap position = Map.insert position (possibleMoves position) moveMap
 
 positionToPath :: Position -> KnightPath
 positionToPath p = Path [p] (removePosition p initialMoveMap)
@@ -44,7 +45,7 @@ removePosition p m = Map.map adjustMap m
     where adjustMap moveSet = Set.delete p moveSet
 
 possibleMoves :: Position -> Set Position
-possibleMoves (x,y) = Set.fromList . filter (\(x,y) -> x >= 1 && x <= 8 && y >=1 && y <=8) $ pm
+possibleMoves (x,y) = Set.fromList . filter (\(i,j) -> i >= 1 && i <= 8 && j >=1 && j <=8) $ pm
     where pm = [(x+2, y+1), 
                 (x+2, y-1), 
                 (x-2, y+1), 
@@ -56,22 +57,18 @@ possibleMoves (x,y) = Set.fromList . filter (\(x,y) -> x >= 1 && x <= 8 && y >=1
 
 -- Make a move - resulting in 1 or more possible paths
 expandPath :: KnightPath -> [KnightPath]
-expandPath (Path path@(x:xs) possibleMoveMap) = map newPath nextMoves
+expandPath (Path path@(x:_) possibleMoveMap) = map newPath nextMoves
     where newPath np = Path (np:path) (removePosition np possibleMoveMap)
           nextMoves = Set.toList $ possibleMoveMap ! x
 
-expandPaths :: IO [KnightPath] -> IO [KnightPath]
-expandPaths pathsM = do
-    paths <- pathsM
-    expandedPaths <- mapM (randomSortBySize . expandPath) $ paths
-    let allNewPaths = concat expandedPaths
-    return allNewPaths
+expandPaths :: StdGen -> [KnightPath] -> [KnightPath]
+expandPaths randGen paths = concatMap (randomSortBySize randGen . expandPath) paths
 
-randomSortBySize :: [KnightPath] -> IO [KnightPath]
-randomSortBySize paths = do
-    randomGen <- getStdGen
-    let positionPriority (Path (p:ps) moveMap) = Set.size $ moveMap ! p
-    let randomizedPriorities = snd . mapAccumL (\gen path -> swap $ randomR (0, positionPriority path) gen) randomGen $ paths
-    let sortedPaths = map fst . sortOn snd $ zip paths randomizedPriorities
-    return sortedPaths
+randomSortBySize :: StdGen -> [KnightPath] -> [KnightPath]
+
+randomSortBySize randGen paths = let
+    positionPriority (Path (p:_) moveMap) = (Set.size $ moveMap ! p) ^ (2 :: Int)
+    randomizedPriorities = snd . mapAccumL (\gen path -> swap $ randomR (0, positionPriority path) gen) randGen $ paths
+    sortedPaths = map fst . sortOn snd $ zip paths randomizedPriorities
+    in sortedPaths
     
